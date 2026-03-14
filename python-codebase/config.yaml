@@ -1,0 +1,144 @@
+# ============================================================
+# LEGO AI Sorting Machine — Configuration (v3)
+# ============================================================
+# Edit these values to match your hardware setup.
+# All pin numbers are BCM GPIO numbers.
+# Settings can also be changed from the web dashboard (Settings tab).
+# ============================================================
+
+# ── CONVEYOR BELT ───────────────────────────────────────────
+belt:
+  step_pin: 17          # GPIO pin for stepper STEP signal
+  dir_pin: 18           # GPIO pin for stepper DIR signal
+  enable_pin: 27        # GPIO pin for stepper ENABLE (active low)
+  speed_mm_per_sec: 35  # Belt speed in mm/s
+  steps_per_mm: 5       # Calibrate: steps needed to move belt 1mm
+  pause_after_classify_ms: 300  # Extra pause after classification before resuming
+  # Optional rotary encoder for closed-loop speed control
+  encoder:
+    enabled: false               # Set true to enable encoder feedback
+    pin_a: 23                    # Encoder channel A GPIO pin
+    pin_b: 24                    # Encoder channel B GPIO pin
+    pulses_per_rev: 600          # Encoder pulses per revolution
+    roller_circumference_mm: 75.4  # Drive roller circumference in mm
+
+# ── SCANNING CHAMBER ────────────────────────────────────────
+scanner:
+  camera_index: 0           # Camera device index (usually 0 for Pi Camera)
+  resolution: [1920, 1080]  # Capture resolution [width, height]
+  capture_frames: 5         # Number of frames to capture per brick
+  motion_threshold: 2500    # Pixel difference threshold for motion detection
+  motion_roi: [400, 200, 1100, 800]  # Region of interest [x1, y1, x2, y2]
+  warmup_frames: 30         # Frames to skip on startup for auto-exposure
+  led_pin: 12               # GPIO PWM pin for LED brightness
+  led_brightness: 80        # LED brightness 0-100 percent
+  # Optional secondary camera for multi-angle classification
+  secondary_camera:
+    enabled: false           # Set true to enable side-view camera
+    camera_index: 1          # Device index for secondary camera
+    resolution: [1280, 720]  # Secondary camera resolution
+
+# ── BRICKOGNIZE API ─────────────────────────────────────────
+classifier:
+  api_url: "https://api.brickognize.com/predict/"
+  confidence_threshold: 0.65  # Minimum confidence to accept classification
+  timeout_seconds: 10         # API request timeout
+  retry_count: 2              # Number of retries on failure
+  unknown_bin: 31             # Bin number for unrecognized bricks (0-indexed)
+  # Confidence-based routing — uncertain parts go to review bin
+  review_bin_enabled: true       # Enable review bin for mid-confidence parts
+  review_threshold: 0.45         # Conf below this = unknown; above this but below
+                                 # confidence_threshold = review; above = accept
+  review_bin: 30                 # Bin for parts needing manual review
+  # Local cache — learns part signatures to skip API calls for common bricks
+  local_cache_enabled: true          # Enable local signature cache
+  local_cache_path: "local_cache.json"  # Where to store learned signatures
+  local_cache_learn_threshold: 0.85  # Min API confidence to learn a part
+  local_cache_max_size: 200          # Max cached signatures
+
+# ── GATE TREE (SORTING) ────────────────────────────────────
+sorter:
+  i2c_bus: 1                  # I2C bus number (1 for Pi 5)
+  pca9685_addresses: [0x40, 0x41]  # I2C addresses for the two PCA9685 boards
+  servo_freq: 50              # Servo PWM frequency (Hz)
+  servo_min_pulse: 150        # Min pulse width (0 degrees)
+  servo_max_pulse: 600        # Max pulse width (180 degrees)
+  left_angle: 30              # Servo angle for "left" path (degrees)
+  right_angle: 150            # Servo angle for "right" path (degrees)
+  gate_settle_ms: 120         # Time to wait for servos to reach position
+  num_bins: 32                # Total output bins
+  num_levels: 5               # Gate tree depth (2^5 = 32)
+  # Power sequencing — GPIO pin to enable servo power relay after boot
+  servo_power_pin: 22         # GPIO pin controlling servo power relay
+  # Metal-gear servos — MG90S on top N levels for durability
+  mg_servo_levels: 3          # Top 3 levels (7 gates) use MG90S servos
+  mg_servo_min_pulse: 500     # MG90S min pulse width
+  mg_servo_max_pulse: 2400    # MG90S max pulse width
+  # Bin monitoring
+  bin_full_threshold: 50      # Warn when a bin has this many bricks
+  # Sort mode: 'part' (by part type), 'color', 'category', 'set'
+  sort_mode: "part"
+
+# ── BIN ASSIGNMENTS ─────────────────────────────────────────
+# Maps LEGO part categories to bin numbers (0-31).
+# Used in "part" sort mode. Bins 30-31 are reserved for review/unknown.
+bin_assignments:
+  # Standard bricks
+  "Brick 1 x": 0
+  "Brick 2 x": 1
+  "Brick 2 x 4": 2
+  "Brick 2 x 6": 3
+  "Brick 2 x 8": 3
+  # Plates
+  "Plate 1 x": 4
+  "Plate 2 x": 5
+  "Plate 2 x 4": 6
+  "Plate 2 x 6": 7
+  "Plate 2 x 8": 7
+  # Tiles
+  "Tile": 8
+  # Slopes
+  "Slope": 9
+  # Technic
+  "Technic": 10
+  "Technic Beam": 11
+  "Technic Pin": 12
+  "Technic Axle": 13
+  # Specialty
+  "Minifig": 14
+  "Window": 15
+  "Door": 15
+  "Wheel": 16
+  "Tire": 16
+  "Round": 17
+  "Cone": 17
+  "Cylinder": 17
+  "Arch": 18
+  "Wedge": 19
+  "Hinge": 20
+  "Clip": 21
+  "Bar": 22
+  "Antenna": 22
+  "Flag": 23
+  "Panel": 24
+  "Baseplate": 25
+  "Modified": 26
+  "Decorated": 27
+  "Printed": 27
+  "Sticker": 28
+  # Catch-all bins
+  "Other": 29
+  "Rare": 29
+  # Bin 30 = review (mid-confidence, needs manual check)
+  # Bin 31 = unknown (auto-assigned when confidence < threshold)
+
+# ── REBRICKABLE API ─────────────────────────────────────────
+rebrickable:
+  api_key: ""           # Get your free API key at rebrickable.com/api/
+  target_sets: []       # List of set numbers to track, e.g. ["42100-1", "10294-1"]
+
+# ── WEB DASHBOARD ───────────────────────────────────────────
+web:
+  host: "0.0.0.0"      # Listen on all interfaces
+  port: 5000            # Web dashboard port
+  debug: false          # Flask debug mode

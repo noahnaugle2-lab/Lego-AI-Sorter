@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LEGO Sorter Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; -webkit-tap-highlight-color: transparent; }
+        .header { background: #1a56db; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 100; }
+        .header h1 { font-size: 17px; font-weight: 600; }
+        .header .status { font-size: 12px; opacity: 0.9; }
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .sort-mode-select { padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.15); color: white; font-size: 12px; }
+        .sort-mode-select option { color: #333; background: white; }
+        .tab-bar { display: flex; background: white; border-bottom: 1px solid #e5e7eb; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .tab { padding: 10px 16px; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .tab.active { color: #1a56db; border-bottom-color: #1a56db; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; padding: 12px; max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 13px; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .stat { text-align: center; padding: 6px 4px; }
+        .stat .value { font-size: 24px; font-weight: 700; color: #1a56db; }
+        .stat .label { font-size: 10px; color: #888; margin-top: 2px; }
+        .camera-feed { width: 100%; border-radius: 8px; background: #000; aspect-ratio: 16/9; object-fit: contain; }
+        .controls { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn { padding: 10px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; min-height: 40px; touch-action: manipulation; }
+        .btn-green { background: #16a34a; color: white; } .btn-green:hover { background: #15803d; }
+        .btn-red { background: #dc2626; color: white; } .btn-red:hover { background: #b91c1c; }
+        .btn-blue { background: #2563eb; color: white; } .btn-blue:hover { background: #1d4ed8; }
+        .btn-gray { background: #e5e7eb; color: #374151; } .btn-gray:hover { background: #d1d5db; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+        .recent-list { max-height: 400px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .recent-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; gap: 8px; }
+        .recent-item .part-name { font-weight: 500; word-break: break-word; }
+        .recent-item .bin { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; }
+        .recent-item .review-badge { background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .recent-item .conf { color: #888; font-size: 11px; }
+        .progress-bar { background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden; margin-top: 6px; }
+        .progress-fill { background: #16a34a; height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .set-item { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .set-name { font-weight: 500; font-size: 14px; }
+        .set-detail { font-size: 12px; color: #666; margin-top: 4px; }
+        .speed-control { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .speed-control input[type=range] { flex: 1; height: 28px; }
+        .bin-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-top: 8px; }
+        .bin-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 5px; background: #f3f4f6; border: 1px solid #e5e7eb; font-size: 11px; cursor: pointer; transition: all 0.15s; font-weight: 500; min-height: 36px; }
+        .bin-cell:hover { background: #e5e7eb; }
+        .bin-cell.warn-35 { background: #fef08a; border-color: #eab308; }
+        .bin-cell.warn-50 { background: #fed7aa; border-color: #f97316; }
+        .bin-cell.warn-75 { background: #fecaca; border-color: #ef4444; }
+        .histogram-bar { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+        .histogram-label { width: 48px; text-align: right; color: #666; flex-shrink: 0; }
+        .histogram-container { flex: 1; position: relative; height: 18px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+        .histogram-fill { height: 100%; transition: width 0.3s; }
+        .histogram-count { width: 36px; text-align: right; color: #666; font-weight: 500; flex-shrink: 0; }
+        .alert-banner { background: #fee2e2; border-left: 4px solid #ef4444; padding: 10px 14px; margin: 8px 12px; border-radius: 6px; font-size: 13px; color: #7f1d1d; }
+        .alert-banner.info { background: #dbeafe; border-left-color: #2563eb; color: #1e3a5f; }
+        .alert-banner-title { font-weight: 600; }
+        .undo-btn { background: #e0e7ff; color: #3730a3; border: none; border-radius: 4px; padding: 6px 8px; cursor: pointer; font-size: 12px; min-height: 28px; touch-action: manipulation; }
+        .undo-btn:hover { background: #c7d2fe; }
+        .reclassify-inputs { margin-top: 8px; display: flex; gap: 4px; width: 100%; }
+        .reclassify-inputs input { width: 60px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+        .reclassify-inputs button { padding: 6px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; min-height: 32px; }
+        .reclassify-confirm { background: #16a34a; color: white; }
+        .reclassify-cancel { background: #e5e7eb; color: #374151; }
+        .full-width { grid-column: 1 / -1; }
+        .config-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .config-row label { font-weight: 500; flex: 1; }
+        .config-row input { width: 100px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; text-align: right; }
+        .config-row .config-save { margin-left: 6px; }
+        .chart-area { height: 160px; position: relative; overflow: hidden; margin-top: 8px; }
+        .chart-bar-group { display: flex; align-items: flex-end; gap: 2px; height: 140px; padding-top: 4px; }
+        .chart-bar { flex: 1; background: #93c5fd; border-radius: 2px 2px 0 0; transition: height 0.3s; min-width: 4px; position: relative; }
+        .chart-bar:hover { background: #3b82f6; }
+        .chart-labels { display: flex; gap: 2px; font-size: 9px; color: #888; margin-top: 2px; }
+        .chart-labels span { flex: 1; text-align: center; overflow: hidden; }
+        .export-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .export-links a { font-size: 12px; color: #2563eb; text-decoration: none; padding: 6px 10px; border: 1px solid #bfdbfe; border-radius: 4px; }
+        .export-links a:hover { background: #eff6ff; }
+        .health-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .health-dot.green { background: #22c55e; }
+        .health-dot.red { background: #ef4444; }
+        .health-dot.yellow { background: #eab308; }
+        @media (max-width: 700px) {
+            .grid { grid-template-columns: 1fr; padding: 8px; gap: 8px; }
+            .stat-grid { grid-template-columns: repeat(3, 1fr); }
+            .bin-grid { grid-template-columns: repeat(4, 1fr); }
+            .header h1 { font-size: 15px; }
+            .tab { padding: 8px 12px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>LEGO AI Sorting Machine</h1>
+            <div class="status" id="status">Connecting...</div>
+        </div>
+        <div class="header-right">
+            <select class="sort-mode-select" id="sort-mode" onchange="setSortMode(this.value)">
+                <option value="part">Sort: By Part</option>
+                <option value="color">Sort: By Color</option>
+                <option value="category">Sort: By Category</option>
+                <option value="set">Sort: For Set</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+        <div class="tab" data-tab="analytics" onclick="switchTab('analytics')">Analytics</div>
+        <div class="tab" data-tab="review" onclick="switchTab('review')">Review</div>
+        <div class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <!-- ── DASHBOARD TAB ──────────────────────────────── -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="grid">
+            <div class="card">
+                <h2>Sorting Stats</h2>
+                <div class="stat-grid">
+                    <div class="stat"><div class="value" id="total-sorted">0</div><div class="label">Total Sorted</div></div>
+                    <div class="stat"><div class="value" id="parts-per-min">0</div><div class="label">Parts / Min</div></div>
+                    <div class="stat"><div class="value" id="avg-conf">0%</div><div class="label">Avg Confidence</div></div>
+                    <div class="stat"><div class="value" id="identified">0</div><div class="label">Identified</div></div>
+                    <div class="stat"><div class="value" id="unknown">0</div><div class="label">Unknown</div></div>
+                    <div class="stat"><div class="value" id="unique-parts">0</div><div class="label">Unique Parts</div></div>
+                    <div class="stat"><div class="value" id="cache-hits">0</div><div class="label">Cache Hits</div></div>
+                    <div class="stat"><div class="value" id="rescans">0</div><div class="label">Rescans</div></div>
+                    <div class="stat"><div class="value" id="review-count">0</div><div class="label">For Review</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Scanner Camera</h2>
+                <img class="camera-feed" id="camera" src="/video_feed" alt="Camera feed" onerror="this.src=''; this.alt='Camera offline'">
+                <div id="secondary-cam-container" style="display:none; margin-top:8px;">
+                    <h2 style="margin-top:8px;">Side View</h2>
+                    <img class="camera-feed" id="camera-secondary" src="/video_feed_secondary" alt="Side camera" onerror="this.style.display='none'">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Controls</h2>
+                <div class="controls">
+                    <button class="btn btn-green" onclick="api('control/start')">Start</button>
+                    <button class="btn btn-red" onclick="api('control/stop')">Stop</button>
+                    <button class="btn btn-gray" onclick="api('control/pause')">Pause</button>
+                    <button class="btn btn-gray" onclick="api('control/resume')">Resume</button>
+                </div>
+                <div class="speed-control">
+                    <span style="font-size:12px;">Speed:</span>
+                    <input type="range" id="speed-slider" min="10" max="80" value="35" oninput="updateSpeed(this.value)">
+                    <span id="speed-val" style="font-size:12px;">35 mm/s</span>
+                </div>
+                <div style="margin-top: 12px;">
+                    <h2>Testing</h2>
+                    <div class="controls" style="margin-top: 8px;">
+                        <button class="btn btn-blue btn-sm" onclick="api('control/test_gates')">Test Gates</button>
+                        <button class="btn btn-gray btn-sm" onclick="api('control/update_background')">Update BG</button>
+                    </div>
+                    <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
+                        <input type="number" id="test-bin" min="0" max="31" value="0" style="width:50px; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                        <button class="btn btn-blue btn-sm" onclick="api('control/test_bin/' + document.getElementById('test-bin').value)">Test Bin</button>
+                    </div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <h2>Load Set</h2>
+                    <div style="display:flex; gap:6px; margin-top:8px;">
+                        <input type="text" id="set-num" placeholder="e.g. 42100-1" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:13px;">
+                        <button class="btn btn-blue btn-sm" onclick="loadSet()">Load</button>
+                    </div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <h2>Export Inventory</h2>
+                    <div class="export-links">
+                        <a href="/api/export/inventory">BrickLink CSV</a>
+                        <a href="/api/export/rebrickable">Rebrickable CSV</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Recent Parts</h2>
+                <div class="recent-list" id="recent-list"></div>
+            </div>
+
+            <div class="card">
+                <h2>Bin Status (32 bins)</h2>
+                <div class="controls" style="margin-bottom: 8px;">
+                    <button class="btn btn-gray btn-sm" onclick="resetAllBins()">Reset All</button>
+                </div>
+                <div class="bin-grid" id="bin-grid"></div>
+            </div>
+
+            <div class="card">
+                <h2>Set Completion</h2>
+                <div id="set-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ANALYTICS TAB ──────────────────────────────── -->
+    <div id="tab-analytics" class="tab-content">
+        <div class="grid">
+            <div class="card">
+                <h2>Throughput</h2>
+                <div class="stat-grid">
+                    <div class="stat"><div class="value" id="tp-last-hour">0</div><div class="label">Last Hour</div></div>
+                    <div class="stat"><div class="value" id="tp-last-day">0</div><div class="label">Last 24h</div></div>
+                    <div class="stat"><div class="value" id="tp-peak">0</div><div class="label">Peak Hour</div></div>
+                </div>
+                <div style="margin-top:8px; font-size:12px; color:#666;">
+                    Session: <span id="tp-session">0</span> min |
+                    Avg: <span id="tp-avg">0</span>/hr
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Sort History (24h)</h2>
+                <div class="chart-area">
+                    <div class="chart-bar-group" id="history-chart"></div>
+                    <div class="chart-labels" id="history-labels"></div>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <h2>Confidence Distribution</h2>
+                <div id="histogram-container"></div>
+            </div>
+
+            <div class="card">
+                <h2>Top Categories</h2>
+                <div id="top-categories"></div>
+            </div>
+
+            <div class="card">
+                <h2>Top Colors</h2>
+                <div id="top-colors"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── REVIEW TAB ─────────────────────────────────── -->
+    <div id="tab-review" class="tab-content">
+        <div class="grid">
+            <div class="card full-width">
+                <h2>Parts Needing Review</h2>
+                <p style="font-size:12px; color:#888; margin-bottom:10px;">These parts had confidence between the review threshold and the accept threshold. Click the arrow to reclassify.</p>
+                <div class="recent-list" id="review-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SETTINGS TAB ───────────────────────────────── -->
+    <div id="tab-settings" class="tab-content">
+        <div class="grid">
+            <div class="card">
+                <h2>Belt Settings</h2>
+                <div class="config-row">
+                    <label>Speed (mm/s)</label>
+                    <input type="number" id="cfg-belt-speed" value="35" step="1">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('belt','speed_mm_per_sec',parseFloat(document.getElementById('cfg-belt-speed').value))">Save</button>
+                </div>
+                <div class="config-row">
+                    <label>Pause after classify (ms)</label>
+                    <input type="number" id="cfg-belt-pause" value="300" step="50">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('belt','pause_after_classify_ms',parseInt(document.getElementById('cfg-belt-pause').value))">Save</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Classifier Settings</h2>
+                <div class="config-row">
+                    <label>Confidence threshold</label>
+                    <input type="number" id="cfg-conf-thresh" value="0.65" step="0.05" min="0" max="1">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('classifier','confidence_threshold',parseFloat(document.getElementById('cfg-conf-thresh').value))">Save</button>
+                </div>
+                <div class="config-row">
+                    <label>Review threshold</label>
+                    <input type="number" id="cfg-review-thresh" value="0.45" step="0.05" min="0" max="1">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('classifier','review_threshold',parseFloat(document.getElementById('cfg-review-thresh').value))">Save</button>
+                </div>
+                <div class="config-row">
+                    <label>API timeout (sec)</label>
+                    <input type="number" id="cfg-api-timeout" value="10" step="1">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('classifier','timeout_seconds',parseInt(document.getElementById('cfg-api-timeout').value))">Save</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Scanner Settings</h2>
+                <div class="config-row">
+                    <label>LED brightness (%)</label>
+                    <input type="number" id="cfg-led-bright" value="80" step="5" min="0" max="100">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('scanner','led_brightness',parseInt(document.getElementById('cfg-led-bright').value))">Save</button>
+                </div>
+                <div class="config-row">
+                    <label>Motion threshold</label>
+                    <input type="number" id="cfg-motion-thresh" value="2500" step="100">
+                    <button class="btn btn-blue btn-sm config-save" onclick="saveConfig('scanner','motion_threshold',parseInt(document.getElementById('cfg-motion-thresh').value))">Save</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>System Info</h2>
+                <div style="font-size:12px; color:#666; line-height:1.8;">
+                    <div>API Status: <span id="api-health"></span></div>
+                    <div>Retry Queue: <span id="retry-queue-size">0</span> items</div>
+                    <div>Encoder RPM: <span id="encoder-rpm">N/A</span></div>
+                    <div>Sort Mode: <span id="current-sort-mode">part</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let _reclassifyActive = false;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+            if (tabId === 'analytics') { refreshAnalytics(); }
+            if (tabId === 'review') { refreshReview(); }
+            if (tabId === 'settings') { loadConfig(); }
+        }
+
+        function api(endpoint, data) {
+            fetch('/api/' + endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: data ? JSON.stringify(data) : '{}'
+            }).catch(e => console.error(e));
+        }
+
+        function updateSpeed(val) {
+            document.getElementById('speed-val').textContent = val + ' mm/s';
+            api('control/speed', {speed: parseFloat(val)});
+        }
+
+        function loadSet() {
+            const setNum = document.getElementById('set-num').value.trim();
+            if (setNum) api('load_set', {set_num: setNum});
+        }
+
+        function setSortMode(mode) {
+            api('control/sort_mode', {mode: mode});
+        }
+
+        function saveConfig(section, key, value) {
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({section, key, value})
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'ok') {
+                    const el = event.target;
+                    el.textContent = 'Saved!';
+                    el.style.background = '#16a34a';
+                    setTimeout(() => { el.textContent = 'Save'; el.style.background = ''; }, 1500);
+                }
+            }).catch(e => console.error(e));
+        }
+
+        function loadConfig() {
+            fetch('/api/config').then(r => r.json()).then(cfg => {
+                if (cfg.belt) {
+                    document.getElementById('cfg-belt-speed').value = cfg.belt.speed_mm_per_sec || 35;
+                    document.getElementById('cfg-belt-pause').value = cfg.belt.pause_after_classify_ms || 300;
+                }
+                if (cfg.classifier) {
+                    document.getElementById('cfg-conf-thresh').value = cfg.classifier.confidence_threshold || 0.65;
+                    document.getElementById('cfg-review-thresh').value = cfg.classifier.review_threshold || 0.45;
+                    document.getElementById('cfg-api-timeout').value = cfg.classifier.timeout_seconds || 10;
+                }
+                if (cfg.scanner) {
+                    document.getElementById('cfg-led-bright').value = cfg.scanner.led_brightness || 80;
+                    document.getElementById('cfg-motion-thresh').value = cfg.scanner.motion_threshold || 2500;
+                }
+            }).catch(() => {});
+        }
+
+        function refreshStats() {
+            fetch('/api/stats').then(r => r.json()).then(d => {
+                const inv = d.inventory;
+                const clf = d.classifier || {};
+                document.getElementById('total-sorted').textContent = inv.total_sorted;
+                document.getElementById('parts-per-min').textContent = inv.parts_per_minute;
+                document.getElementById('identified').textContent = inv.identified;
+                document.getElementById('unknown').textContent = inv.unknown;
+                document.getElementById('unique-parts').textContent = inv.unique_parts;
+                document.getElementById('avg-conf').textContent = inv.avg_confidence + '%';
+                document.getElementById('rescans').textContent = d.rescan_attempts || 0;
+                document.getElementById('cache-hits').textContent = clf.cache_hits || 0;
+                document.getElementById('review-count').textContent = inv.review_count || 0;
+
+                // Header status
+                const healthDot = d.api_healthy ? '<span class="health-dot green"></span>' : '<span class="health-dot red"></span>';
+                document.getElementById('status').innerHTML =
+                    healthDot + (d.belt_running ? 'Running — ' + d.state : 'Stopped') +
+                    (d.sort_mode ? ' [' + d.sort_mode + ']' : '');
+
+                // Sort mode selector
+                const modeSelect = document.getElementById('sort-mode');
+                if (modeSelect.value !== d.sort_mode) modeSelect.value = d.sort_mode;
+
+                // System info
+                document.getElementById('api-health').innerHTML = d.api_healthy ?
+                    '<span class="health-dot green"></span>Healthy' :
+                    '<span class="health-dot red"></span>Unhealthy';
+                document.getElementById('retry-queue-size').textContent = d.retry_queue_size || 0;
+                document.getElementById('encoder-rpm').textContent =
+                    d.encoder_rpm > 0 ? d.encoder_rpm.toFixed(1) + ' RPM' : 'N/A';
+                document.getElementById('current-sort-mode').textContent = d.sort_mode || 'part';
+
+                // Bin warnings
+                fetch('/api/bin_warnings').then(r => r.json()).then(bw => {
+                    updateAlertBanner(bw.warnings);
+                }).catch(() => {});
+            }).catch(() => {
+                document.getElementById('status').innerHTML =
+                    '<span class="health-dot red"></span>Disconnected';
+            });
+        }
+
+        function refreshRecent() {
+            if (_reclassifyActive) return;
+            fetch('/api/recent').then(r => r.json()).then(parts => {
+                const list = document.getElementById('recent-list');
+                list.innerHTML = parts.map((p, i) => `
+                    <div class="recent-item" id="recent-${i}">
+                        <div style="flex:1; min-width:0;">
+                            <div class="part-name">${p.part_name || 'Unknown'}</div>
+                            <div class="conf">${p.part_id} · ${(p.confidence*100).toFixed(0)}% · ${p.color || ''}</div>
+                        </div>
+                        <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+                            ${p.needs_review ? '<span class="review-badge">Review</span>' : ''}
+                            <div class="bin">Bin ${p.bin_number}</div>
+                            <button class="undo-btn" onclick="showReclassifyMode(${i}, ${p.id})">&#8617;</button>
+                        </div>
+                    </div>
+                `).join('');
+            }).catch(() => {});
+        }
+
+        function showReclassifyMode(index, part_id) {
+            _reclassifyActive = true;
+            const item = document.getElementById('recent-' + index);
+            if (!item) return;
+            const binMatch = item.querySelector('.bin')?.textContent.match(/\d+/);
+            const currentBin = binMatch ? parseInt(binMatch[0]) : 0;
+            item.innerHTML = `
+                <div style="width:100%;">
+                    <div class="part-name" style="margin-bottom:6px;">Reclassify to bin:</div>
+                    <div class="reclassify-inputs">
+                        <input type="number" id="new-bin-${index}" min="0" max="31" value="${currentBin}">
+                        <button class="reclassify-confirm" onclick="submitReclassify(${index}, ${part_id}, document.getElementById('new-bin-${index}').value)">Confirm</button>
+                        <button class="reclassify-cancel" onclick="_reclassifyActive=false; refreshRecent()">Cancel</button>
+                    </div>
+                </div>`;
+            document.getElementById('new-bin-' + index).focus();
+        }
+
+        function submitReclassify(index, part_id, new_bin) {
+            _reclassifyActive = false;
+            fetch('/api/reclassify/' + part_id, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({new_bin: parseInt(new_bin)})
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'ok') { refreshRecent(); refreshBins(); }
+            }).catch(e => console.error(e));
+        }
+
+        function refreshReview() {
+            fetch('/api/review').then(r => r.json()).then(parts => {
+                const list = document.getElementById('review-list');
+                if (!parts.length) {
+                    list.innerHTML = '<p style="color:#888; font-size:13px; padding:16px 0;">No parts pending review.</p>';
+                    return;
+                }
+                list.innerHTML = parts.map((p, i) => `
+                    <div class="recent-item" id="review-${i}">
+                        <div style="flex:1; min-width:0;">
+                            <div class="part-name">${p.part_name || 'Unknown'}</div>
+                            <div class="conf">${p.part_id} · ${(p.confidence*100).toFixed(0)}% · ${p.color || ''}</div>
+                        </div>
+                        <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+                            <span class="review-badge">Review</span>
+                            <div class="bin">Bin ${p.bin_number}</div>
+                            <button class="undo-btn" onclick="showReviewReclassify(${i}, ${p.id})">&#8617;</button>
+                        </div>
+                    </div>
+                `).join('');
+            }).catch(() => {});
+        }
+
+        function showReviewReclassify(index, part_id) {
+            const item = document.getElementById('review-' + index);
+            if (!item) return;
+            const binMatch = item.querySelector('.bin')?.textContent.match(/\d+/);
+            const currentBin = binMatch ? parseInt(binMatch[0]) : 0;
+            item.innerHTML = `
+                <div style="width:100%;">
+                    <div class="part-name" style="margin-bottom:6px;">Reclassify to bin:</div>
+                    <div class="reclassify-inputs">
+                        <input type="number" id="review-bin-${index}" min="0" max="31" value="${currentBin}">
+                        <button class="reclassify-confirm" onclick="submitReviewReclassify(${part_id}, document.getElementById('review-bin-${index}').value)">Confirm</button>
+                        <button class="reclassify-cancel" onclick="refreshReview()">Cancel</button>
+                    </div>
+                </div>`;
+            document.getElementById('review-bin-' + index).focus();
+        }
+
+        function submitReviewReclassify(part_id, new_bin) {
+            fetch('/api/reclassify/' + part_id, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({new_bin: parseInt(new_bin)})
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'ok') refreshReview();
+            }).catch(e => console.error(e));
+        }
+
+        function refreshSets() {
+            fetch('/api/sets').then(r => r.json()).then(sets => {
+                const el = document.getElementById('set-progress');
+                if (!sets.length) { el.innerHTML = '<p style="color:#888;font-size:13px;">No sets loaded.</p>'; return; }
+                el.innerHTML = sets.map(s => {
+                    const pct = s.total_needed ? Math.round(s.total_found / s.total_needed * 100) : 0;
+                    return `
+                        <div class="set-item">
+                            <div class="set-name">${s.name} (${s.set_num})</div>
+                            <div class="set-detail">${s.total_found || 0} / ${s.total_needed || 0} parts · ${pct}%</div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                            <div class="export-links" style="margin-top:4px;">
+                                <a href="/api/missing/${s.set_num}/csv">Missing parts CSV</a>
+                            </div>
+                        </div>`;
+                }).join('');
+            }).catch(() => {});
+        }
+
+        function refreshBins() {
+            fetch('/api/bin_warnings').then(r => r.json()).then(d => {
+                const grid = document.getElementById('bin-grid');
+                const counts = d.bin_counts || {};
+                let html = '';
+                for (let i = 0; i < 32; i++) {
+                    const count = counts[i] || 0;
+                    let cls = 'bin-cell';
+                    if (count >= 75) cls += ' warn-75';
+                    else if (count >= 50) cls += ' warn-50';
+                    else if (count >= 35) cls += ' warn-35';
+                    html += `<div class="${cls}" onclick="confirmResetBin(${i})" title="Bin ${i}: ${count}"><div>${i}</div><div style="font-size:9px;color:#666;">${count}</div></div>`;
+                }
+                grid.innerHTML = html;
+            }).catch(() => {});
+        }
+
+        function confirmResetBin(binNum) {
+            if (confirm(`Reset bin ${binNum} count to 0?`)) {
+                fetch('/api/reset_bin/' + binNum, {method: 'POST'}).then(() => refreshBins()).catch(e => console.error(e));
+            }
+        }
+
+        function resetAllBins() {
+            if (confirm('Reset all bin counts?')) {
+                for (let i = 0; i < 32; i++) fetch('/api/reset_bin/' + i, {method: 'POST'}).catch(() => {});
+                setTimeout(refreshBins, 500);
+            }
+        }
+
+        function refreshAnalytics() {
+            // Throughput
+            fetch('/api/throughput').then(r => r.json()).then(d => {
+                document.getElementById('tp-last-hour').textContent = d.last_hour;
+                document.getElementById('tp-last-day').textContent = d.last_24h;
+                document.getElementById('tp-peak').textContent = d.peak_hour;
+                document.getElementById('tp-session').textContent = d.session_minutes;
+                document.getElementById('tp-avg').textContent = d.avg_per_hour;
+            }).catch(() => {});
+
+            // Sort history chart
+            fetch('/api/sort_history?hours=24').then(r => r.json()).then(data => {
+                const chart = document.getElementById('history-chart');
+                const labels = document.getElementById('history-labels');
+                if (!data.length) { chart.innerHTML = '<div style="color:#888;font-size:12px;padding:20px;">No history yet</div>'; return; }
+                const maxCount = Math.max(...data.map(d => d.total_count), 1);
+                chart.innerHTML = data.map(d => {
+                    const h = Math.max(2, (d.total_count / maxCount) * 130);
+                    return `<div class="chart-bar" style="height:${h}px" title="${d.total_count} parts"></div>`;
+                }).join('');
+                labels.innerHTML = data.map(d => {
+                    const date = new Date(d.hour_ts * 1000);
+                    return `<span>${date.getHours()}h</span>`;
+                }).join('');
+            }).catch(() => {});
+
+            // Histogram
+            refreshHistogram();
+
+            // Top categories
+            fetch('/api/stats').then(r => r.json()).then(d => {
+                const cats = d.inventory.top_categories || [];
+                document.getElementById('top-categories').innerHTML = cats.map(c =>
+                    `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid #f0f0f0;"><span>${c.category || 'Other'}</span><span style="color:#666;">${c.count}</span></div>`
+                ).join('') || '<p style="color:#888;font-size:12px;">No data yet</p>';
+
+                const colors = d.inventory.top_colors || [];
+                document.getElementById('top-colors').innerHTML = colors.map(c =>
+                    `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid #f0f0f0;"><span>${c.color}</span><span style="color:#666;">${c.count}</span></div>`
+                ).join('') || '<p style="color:#888;font-size:12px;">No data yet</p>';
+            }).catch(() => {});
+        }
+
+        function refreshHistogram() {
+            fetch('/api/confidence_histogram').then(r => r.json()).then(d => {
+                const cont = document.getElementById('histogram-container');
+                if (!d.buckets) { cont.innerHTML = ''; return; }
+                const maxCount = Math.max(...d.counts, 1);
+                const colors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e','#22c55e','#22c55e','#22c55e','#22c55e','#22c55e'];
+                cont.innerHTML = d.buckets.map((b, i) => {
+                    const w = (d.counts[i] / maxCount * 100).toFixed(0);
+                    return `<div class="histogram-bar"><div class="histogram-label">${b}</div><div class="histogram-container"><div class="histogram-fill" style="width:${w}%;background:${colors[i]};"></div></div><div class="histogram-count">${d.counts[i]}</div></div>`;
+                }).join('');
+            }).catch(() => {});
+        }
+
+        function updateAlertBanner(warnings) {
+            const container = document.getElementById('alert-container');
+            if (!warnings || warnings.length === 0) { container.innerHTML = ''; return; }
+            const binList = warnings.map(b => `Bin ${b}`).join(', ');
+            container.innerHTML = `<div class="alert-banner"><div class="alert-banner-title">Bins Getting Full</div>${binList}</div>`;
+        }
+
+        // Auto-refresh
+        setInterval(refreshStats, 2000);
+        setInterval(refreshRecent, 3000);
+        setInterval(refreshSets, 10000);
+        setInterval(refreshBins, 5000);
+        refreshStats(); refreshRecent(); refreshSets(); refreshBins();
+    </script>
+</body>
+</html>

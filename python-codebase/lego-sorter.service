@@ -1,0 +1,44 @@
+# ============================================================
+# LEGO AI Sorting Machine — systemd Service File
+# ============================================================
+# Install:
+#   sudo cp lego-sorter.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable lego-sorter
+#   sudo systemctl start lego-sorter
+#
+# View logs:
+#   sudo journalctl -u lego-sorter -f
+#
+# Stop:
+#   sudo systemctl stop lego-sorter
+# ============================================================
+
+[Unit]
+Description=LEGO AI Sorting Machine
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/lego-sorter
+ExecStart=/usr/bin/python3 /home/pi/lego-sorter/main.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# GPIO and I2C access
+SupplementaryGroups=gpio i2c video
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Graceful shutdown (SIGTERM -> shutdown handler)
+TimeoutStopSec=15
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
