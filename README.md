@@ -4,6 +4,8 @@
 
 ![Brick Journey](docs/brick_journey.gif)
 
+![Brick Path Diagram](docs/path_diagram.png)
+
 An AI-powered LEGO brick sorting machine built on a Raspberry Pi 5. Combines computer vision, a Brickognize REST API, a local learning cache, and a 31-servo binary gate tree to automatically classify and route bricks into 32 output bins in real time.
 
 ---
