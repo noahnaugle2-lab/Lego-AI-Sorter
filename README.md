@@ -1,4 +1,4 @@
-# LEGO AI Sorting Machine v3
+# LEGO AI Sorting Machine v3 / v4 Hybrid
 
 ![Prototype Preview](docs/prototype_preview.png)
 
@@ -6,12 +6,78 @@
 
 ![Brick Path Diagram](docs/path_diagram.png)
 
-An AI-powered LEGO brick sorting machine built on a Raspberry Pi 5. Combines computer vision, a Brickognize REST API, a local learning cache, and a 31-servo binary gate tree to automatically classify and route bricks into 32 output bins in real time.
+An AI-powered LEGO brick sorting machine built on a Raspberry Pi 5. Combines computer vision, a Brickognize REST API, a local learning cache, and a binary gate tree to automatically classify and route bricks into output bins in real time.
+
+---
+
+## v4 Hybrid Design
+
+![Hybrid Assembly Preview](docs/hybrid_preview.png)
+
+The v4 Hybrid combines the best mechanical ideas from two independent designs into one cohesive machine:
+
+### What's new vs v3
+
+| Subsystem | v3 (original) | v4 Hybrid |
+|-----------|--------------|-----------|
+| **Input** | Linear NEMA 17 belt | 4-platform rotating carousel |
+| **Singulation** | Manual separation | Step feeder hopper (automatic) |
+| **Entry transition** | 5.5° gravity ramp (insufficient) | Carousel tilt-to-dispense (active, no ramp) |
+| **Distribution** | 31-servo 5-level binary tree (32 bins) | Pancake stack (8 categories) + 3-level mini-tree (8 sub-bins) = 64 destinations |
+| **Servo count** | 31 gates | 15 total (4 tilt + 1 trap-door + 10 mini-tree) |
+| **Brick size limit** | Informal | 80mm sphere constraint (covers 98% of LEGO production pieces) |
+
+### Carousel Feeder (`carousel.py`, `3d-parts/carousel_feeder.scad`)
+
+A 4-platform rotating carousel replaces the linear belt. All four positions process simultaneously (pipelined):
+
+```
+Position 0 — LOAD      ← step feeder deposits one brick
+Position 1 — IMAGE     ← fixed camera captures, AI classifies
+Position 2 — DISPENSE  ← platform tilts ~45°, brick drops to pancake stack
+Position 3 — CLEAR     ← platform returns flat, ready for next brick
+```
+
+One 90° rotation advances all platforms by one stage. Effective throughput: ~1 brick per rotation cycle (2–3 s). Each platform has an 80mm × 80mm acrylic insert compatible with the 80mm sphere size constraint that encompasses 98% of production LEGO pieces.
+
+### Pancake Stack Distribution (`pancake_sorter.py`, `3d-parts/pancake_stack.scad`)
+
+A central rotating chute distributes bricks to stacked circular bin levels — one servo per level, one level per category:
+
+```
+Level 0 — Bricks    Level 4 — Minifigs
+Level 1 — Plates    Level 5 — Slopes
+Level 2 — Tiles     Level 6 — Special
+Level 3 — Technic   Level 7 — Unknown/Review
+```
+
+Below each stack level, a 3-level mini gate tree sub-sorts by part size/variant into 8 output bins. Total: **64 unique destinations** with only **15 servos** (vs 31 in v3).
+
+### What's kept from v3
+
+- Brickognize AI classifier + local HSV histogram cache
+- Flask web dashboard + SQLite inventory
+- Confidence-based routing (review bin / unknown bin)
+- Raspberry Pi 5 target hardware + PCA9685 servo drivers
+- All existing sort modes (`part`, `color`, `category`, `set`)
+
+### New files
+
+| File | Purpose |
+|------|---------|
+| `carousel.py` | Carousel feeder motor + platform tilt servos |
+| `pancake_sorter.py` | Pancake stack chute + mini gate tree routing |
+| `3d-parts/carousel_feeder.scad` | Printable carousel (hub + arms + platforms) |
+| `3d-parts/pancake_stack.scad` | Printable bin stack + rotating chute |
+| `3d-parts/hybrid_assembly.scad` | Full assembly visualisation |
+
+---
 
 ---
 
 ## Table of Contents
 
+- [v4 Hybrid Design](#v4-hybrid-design)
 - [Quick Start](#quick-start)
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
