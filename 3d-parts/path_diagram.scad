@@ -186,47 +186,87 @@ module brick(x, z) {
         translate([x+sx, AY-1.5, z+16]) rotate([90,0,0]) cylinder(h=3, d=8, $fn=16);
 }
 
+// ── ENTRY CHUTE (clipped cross-section) ───────────────────
+C_CHUTE = [0.55, 0.68, 0.92];
+
+module chute_cs() {
+    // Ramp floor — thin angled slab from belt exit down to gate throat
+    color(C_CHUTE, 0.92) clip() hull() {
+        translate([387, 35, 197]) cube([3, 70, 3]);
+        translate([248, 35, 197]) cube([3, 70, 3]);
+    }
+    // Catch wall — vertical plate at belt end (x=390)
+    color(C_CHUTE, 0.92) clip()
+        translate([390, 35, 197]) cube([3, 70, 25]);
+    // Front taper wall
+    color(C_CHUTE, 0.80) clip() hull() {
+        translate([387, 32, 197]) cube([3, 3, 22]);
+        translate([248, 35, 197]) cube([3, 3, 5]);
+    }
+    // Back taper wall
+    color(C_CHUTE, 0.80) clip() hull() {
+        translate([387, 105, 197]) cube([3, 3, 22]);
+        translate([248, 90, 197]) cube([3, 3, 5]);
+    }
+    // Throat left wall (guides into gate root from right)
+    color(C_CHUTE, 0.92) clip()
+        translate([245, 35, 181]) cube([3, 70, 18]);
+    // Throat right wall (outer guide)
+    color(C_CHUTE, 0.92) clip()
+        translate([172, 35, 181]) cube([3, 70, 18]);
+}
+
 // ── PATH WAYPOINTS ─────────────────────────────────────────
-//  A (30,  224) start on belt
-//  B (224, 224) under camera
-//  C (310, 224) exit chamber
-//  D (390, 224) belt end → drop
-//  E (245, 163) gate root
-//  F (268, 113) gate L1
-//  G (291,  55) gate L2
-//  H (307,   0) bin
+//  A (30,  224) brick starts on belt (left)
+//  B (224, 224) under camera — classification scan
+//  C (390, 224) belt end — brick hits catch wall
+//  D (390, 210) slides down catch wall onto ramp
+//  E (245, 200) ramp exit — enters gate throat
+//  F (210, 185) gate root input
+//  G (265,  85) gate L1 right branch
+//  H (295,  30) gate L2 right-right branch
+//  I (307,   0) lands in output bin
 
 module path() {
-    // Belt segments
+    // ── Belt: A → B → C ──
     arr( 30, 224, 134, 224);
     arr(150, 224, 215, 224);
     arr(233, 224, 302, 224);
     arr(318, 224, 382, 224);
 
-    // Camera scan beam (down from camera to brick)
+    // ── Camera scan beam (down from camera) ──
     arr(224, 348, 224, 238);
 
-    // Drop off belt
-    arr(385, 218, 254, 170);
+    // ── Catch wall: brick hits wall, drops down ──
+    arr(390, 222, 390, 205);
 
-    // Through gate tree
-    arr(248, 160, 264, 120);
-    arr(266, 112, 286,  63);
-    arr(288,  52, 305,   8);
+    // ── Ramp: slides left-and-down to gate throat ──
+    arr(388, 202, 252, 200);
 
-    // Stage dots
-    dot( 30, 224);
-    dot(224, 224);
-    dot(390, 224);
-    dot(245, 163);
-    dot(307,   0);
+    // ── Gate throat: drops into root gate ──
+    arr(245, 200, 218, 188);
 
-    // Brick at start position
+    // ── Through gate tree ──
+    arr(213, 182, 262,  92);
+    arr(264,  84, 290,  38);
+    arr(292,  30, 305,   4);
+
+    // ── Stage dots ──
+    dot( 30, 224);   // start
+    dot(224, 224);   // camera scan
+    dot(390, 222);   // belt end / catch wall
+    dot(245, 200);   // ramp exit / gate throat
+    dot(210, 185);   // gate root
+    dot(307,   0);   // bin
+
+    // ── Brick icon at start ──
     brick(30, 224);
 }
 
 // ── ASSEMBLE ───────────────────────────────────────────────
+// Draw chute first so gate modules render on top of it
 frame_cs();
+chute_cs();
 belt_cs();
 chamber_cs();
 electronics_cs();
